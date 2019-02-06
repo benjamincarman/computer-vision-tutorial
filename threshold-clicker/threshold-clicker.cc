@@ -101,9 +101,9 @@ void BGR_Slider(int, void* resource)
 {
   Threshold* r = (Threshold*)resource;
 
-  if (r->high_blue < r->low_blue) {r->high_blue = r->low_blue; setTrackbarPos("High Blue Threshold Selector", "Threshold Sliders", r->high_blue);}
-  if (r->high_green < r->low_green) {r->high_green = r->low_green; setTrackbarPos("High Green Threshold Selector", "Threshold Sliders", r->high_green);}
-  if (r->high_red < r->low_red) {r->high_red = r->low_red; setTrackbarPos("High Red Threshold Selector", "Threshold Sliders", r->high_red);}
+  //if (r->high_blue < r->low_blue) {r->high_blue = r->low_blue; setTrackbarPos("High Blue Threshold Selector", "Threshold Sliders", r->high_blue);}
+  //if (r->high_green < r->low_green) {r->high_green = r->low_green; setTrackbarPos("High Green Threshold Selector", "Threshold Sliders", r->high_green);}
+  //if (r->high_red < r->low_red) {r->high_red = r->low_red; setTrackbarPos("High Red Threshold Selector", "Threshold Sliders", r->high_red);}
 
   inRange(r->bgr_img, Scalar(r->low_blue, r->low_green, r->low_red), Scalar(r->high_blue, r->high_green, r->high_red), r->bgr_img_thresholded);
   imshow("BGR Thresholded Image", r->bgr_img_thresholded);
@@ -113,9 +113,9 @@ void HSV_Slider(int, void* resource)
 {
   Threshold* r = (Threshold*)resource;
 
-  if (r->high_h < r->low_h) {r->high_h = r->low_h; setTrackbarPos("High Hue Threshold Selector", "Threshold Sliders", r->high_h);}
-  if (r->high_s < r->low_s) {r->high_s = r->low_s; setTrackbarPos("High Saturation Threshold Selector", "Threshold Sliders", r->high_s);}
-  if (r->high_v < r->low_v) {r->high_v = r->low_v; setTrackbarPos("High Value Threshold Selector", "Threshold Sliders", r->high_v);}
+  //if (r->high_h < r->low_h) {r->high_h = r->low_h; setTrackbarPos("High Hue Threshold Selector", "Threshold Sliders", r->high_h);}
+  //if (r->high_s < r->low_s) {r->high_s = r->low_s; setTrackbarPos("High Saturation Threshold Selector", "Threshold Sliders", r->high_s);}
+  //if (r->high_v < r->low_v) {r->high_v = r->low_v; setTrackbarPos("High Value Threshold Selector", "Threshold Sliders", r->high_v);}
 
   inRange(r->hsv_img, Scalar(r->low_h, r->low_s, r->low_v), Scalar(r->high_h, r->high_s, r->high_v), r->hsv_img_thresholded);
   imshow("HSV Thresholded Image", r->hsv_img_thresholded);
@@ -141,36 +141,38 @@ void Mouse_Callback(int event, int x, int y, int flags, void* resource)
       int min_v = 255;
       int max_v = 0;
 
-      //Sample 10x10 array of pixels surrounding clicked location
-      for (int i = x - 5; i < x + 5; i++)
+      //Sample 20x20 array of pixels surrounding clicked location
+      for (int i = x - 10; i < x + 10; i++)
       {
-        for (int j = y - 5; j < y + 5; j++)
+        for (int j = y - 10; j < y + 10; j++)
         {
           Vec3b bgr_point = r->bgr_img.at<Vec3b>(y, x);
           int blue = int(bgr_point.val[0]);
           int green = int(bgr_point.val[1]);
           int red = int(bgr_point.val[2]);
-          std::cout << blue << " " << green << " " << red << std::endl;
+          //std::cout << blue << " " << green << " " << red << std::endl;
 
           Vec3b hsv_point = r->hsv_img.at<Vec3b>(y, x);
           int hue = int(hsv_point.val[0]);
           int saturation = int(hsv_point.val[1]);
           int value = int(hsv_point.val[2]);
-          std::cout << hue << " " << saturation << " " << value << std::endl;
+          //std::cout << hue << " " << saturation << " " << value << std::endl;
 
-          if (blue < min_b) {min_b = blue;}
-          if (blue > max_b) {max_b = blue;}
-          if (green < min_g) {min_g = green;}
-          if (green > max_g) {max_g = green;}
-          if (red < min_r) {min_r = red;}
-          if (red > max_r) {max_r = red;}
+          int padding = 20;
 
-          if (hue < min_h) {min_h = hue;}
-          if (hue > max_h) {max_h = hue;}
-          if (saturation < min_s) {min_s = saturation;}
-          if (saturation > max_s) {max_s = saturation;}
-          if (value < min_v) {min_v = value;}
-          if (value > max_v) {max_v = value;}
+          if (blue < min_b) {min_b = blue - padding;}
+          if (blue > max_b) {max_b = blue + padding;}
+          if (green < min_g) {min_g = green - padding;}
+          if (green > max_g) {max_g = green + padding;}
+          if (red < min_r) {min_r = red - padding;}
+          if (red > max_r) {max_r = red + padding;}
+
+          if (hue < min_h) {min_h = hue - padding;}
+          if (hue > max_h) {max_h = hue + padding;}
+          if (saturation < min_s) {min_s = saturation - padding;}
+          if (saturation > max_s) {max_s = saturation + padding;}
+          if (value < min_v) {min_v = value - padding;}
+          if (value > max_v) {max_v = value + padding;}
         }
       }
 
