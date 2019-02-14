@@ -158,7 +158,7 @@ void Mouse_Callback(int event, int x, int y, int flags, void* resource)
           int value = int(hsv_point.val[2]);
           //std::cout << hue << " " << saturation << " " << value << std::endl;
 
-          int padding = 20;
+          int padding = 15;
 
           if (blue < min_b) {min_b = blue - padding;}
           if (blue > max_b) {max_b = blue + padding;}
