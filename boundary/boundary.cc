@@ -87,8 +87,8 @@ int main(int argc, char** argv)
     labels, stats, centroids, 4);
 
   r.noise_free = Mat::zeros(r.hsv_img_thresholded.rows, r.hsv_img_thresholded.cols, CV_8U);
-  for(int i=0; i<r.noise_free.rows; i++) {
-    for(int j=0; j<r.noise_free.cols; j++) {
+  for(int i = 0; i < r.noise_free.rows; i++) {
+    for(int j = 0; j < r.noise_free.cols; j++) {
       int label = labels.at<int>(i,j);
       if (stats.at<int>(label, CC_STAT_AREA) > 2000 && stats.at<int>(label, CC_STAT_AREA) < 30000)
       {
@@ -98,11 +98,47 @@ int main(int argc, char** argv)
   }
 
   r.final = Mat::zeros(r.noise_free.rows, r.noise_free.cols, CV_8U);
-  for(int i=0; i<r.noise_free.rows; i++) {
-    for(int j=0; j<r.noise_free.cols; j++) {
+
+  //Get left boundary
+  for(int i = 0; i < r.noise_free.rows; i++) {
+    for(int j = 0; j < r.noise_free.cols; j++) {
       if (isEdge(r.noise_free, i, j))
       {
         r.final.at<unsigned char>(i, j) = 255;
+        break;
+      }
+    }
+  }
+
+  //Get right boundary
+  for(int i = 0; i < r.noise_free.rows; i++) {
+    for(int j = r.noise_free.cols - 1; j >= 0; j--) {
+      if (isEdge(r.noise_free, i, j))
+      {
+        r.final.at<unsigned char>(i, j) = 255;
+        break;
+      }
+    }
+  }
+
+  //Get top boundary
+  for(int j = 0; j < r.noise_free.cols; j++) {
+    for(int i = 0; i < r.noise_free.rows; i++) {
+      if (isEdge(r.noise_free, i, j))
+      {
+        r.final.at<unsigned char>(i, j) = 255;
+        break;
+      }
+    }
+  }
+
+  //Get bottom boundary
+  for(int j = 0; j < r.noise_free.cols; j++) {
+    for(int i = r.noise_free.rows - 1; i >= 0; i--) {
+      if (isEdge(r.noise_free, i, j))
+      {
+        r.final.at<unsigned char>(i, j) = 255;
+        break;
       }
     }
   }
