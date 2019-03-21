@@ -32,25 +32,14 @@ bool isEdge(Mat &image, int i, int j)
   {
     if (i > 0 && j > 0 && image.at<unsigned char>(i-1,j-1) == 0) return true;
     if (i > 0 && image.at<unsigned char>(i-1,j) == 0) return true;
-    if (i > 0 && j < 255 && image.at<unsigned char>(i-1,j+1) == 0) return true;
+    if (i > 0 && j < image.cols && image.at<unsigned char>(i-1,j+1) == 0) return true;
     if (j > 0 && image.at<unsigned char>(i,j-1) == 0) return true;
-    if (j < 255 && image.at<unsigned char>(i,j+1) == 0) return true;
-    if (i < 255 && j > 0 && image.at<unsigned char>(i+1,j-1) == 0) return true;
-    if (i < 255 && image.at<unsigned char>(i+1,j) == 0) return true;
-    if (i < 255 && j < 255 && image.at<unsigned char>(i+1,j+1) == 0) return true;
+    if (j < image.cols && image.at<unsigned char>(i,j+1) == 0) return true;
+    if (i < image.rows && j > 0 && image.at<unsigned char>(i+1,j-1) == 0) return true;
+    if (i < image.rows && image.at<unsigned char>(i+1,j) == 0) return true;
+    if (i < image.rows && j < image.cols && image.at<unsigned char>(i+1,j+1) == 0) return true;
   }
 
-  if (image.at<unsigned char>(i,j) == 0)
-  {
-    if (i > 0 && j > 0 && image.at<unsigned char>(i-1,j-1) == 255) return true;
-    if (i > 0 && image.at<unsigned char>(i-1,j) == 255) return true;
-    if (i > 0 && j < 255 && image.at<unsigned char>(i-1,j+1) == 255) return true;
-    if (j > 0 && image.at<unsigned char>(i,j-1) == 255) return true;
-    if (j < 255 && image.at<unsigned char>(i,j+1) == 255) return true;
-    if (i < 255 && j > 0 && image.at<unsigned char>(i+1,j-1) == 255) return true;
-    if (i < 255 && image.at<unsigned char>(i+1,j) == 255) return true;
-    if (i < 255 && j < 255 && image.at<unsigned char>(i+1,j+1) == 255) return true;
-  }
   return false;
 }
 
