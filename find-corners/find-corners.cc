@@ -204,14 +204,14 @@ void thin(Mat &image)
   }
 }
 
-
+//atan2(delta y, delta x) 180 degree range in rad
 
 
 void get_corners(std::vector<Point> boundary_points, std::vector<Point> &corner_points, Mat &image)
 {
 
   std::vector<double> slopes;
-  int buffer = 3;
+  int buffer = 2;
   //Get all out slopes from orgigin +- 3 pixels
   for (size_t i = 0; i < boundary_points.size(); i++)
   {
@@ -349,7 +349,7 @@ void get_corners(std::vector<Point> boundary_points, std::vector<Point> &corner_
       std::cout << "Dude";
     }
     */
-    int erasable_range = slope_change.size()/9; //10
+    int erasable_range = 10;//slope_change.size()/9; //10
     if (loc < erasable_range)
     {
       for (int i = 0; i <= loc + erasable_range; i++)
