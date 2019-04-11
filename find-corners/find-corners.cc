@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <vector>
+#include <cmath>
 
 using namespace cv;
 
@@ -211,7 +212,7 @@ void get_corners(std::vector<Point> boundary_points, std::vector<Point> &corner_
 {
 
   std::vector<double> slopes;
-  int buffer = 2;
+  int buffer = 3;
   //Get all out slopes from orgigin +- 3 pixels
   for (size_t i = 0; i < boundary_points.size(); i++)
   {
@@ -234,7 +235,9 @@ void get_corners(std::vector<Point> boundary_points, std::vector<Point> &corner_
       pt2.y = line[3] + 100*line[1];
       cv::line(image, pt1, pt2, Scalar(255,0,0), 1);
       */
-      double slope = line[1]/line[0];
+      double slope = atan(line[1]/line[0]) * 180 / CV_PI;// + CV_PI; //* 180 / CV_PI;//line[1]/line[0];
+      //if(slope < 0) slope += 180;
+      //slope *= (180 / CV_PI);
       slopes.push_back(slope);
       //std::cout << line[0] << " " << line[1] << " " << line[2] << " " << line[3] << " " << slope << std::endl;
     }
@@ -258,7 +261,9 @@ void get_corners(std::vector<Point> boundary_points, std::vector<Point> &corner_
       pt2.y = line[3] + 100*line[1];
       cv::line(image, pt1, pt2, Scalar(255,0,0), 1);
       */
-      double slope = line[1]/line[0];
+      double slope = atan(line[1]/line[0]) * 180 / CV_PI;// + CV_PI; //* 180 / CV_PI;//line[1]/line[0];
+      //if(slope < 0) slope += 180;
+      //slope *= (180 / CV_PI);
       slopes.push_back(slope);
       //std::cout << line[0] << " " << line[1] << " " << line[2] << " " << line[3] << " " << slope << std::endl;
     }
@@ -277,7 +282,9 @@ void get_corners(std::vector<Point> boundary_points, std::vector<Point> &corner_
     pt2.y = line[3] + 100*line[1];
     cv::line(image, pt1, pt2, Scalar(255,0,0), 1);
     */
-    double slope = line[1]/line[0];
+    double slope = atan(line[1]/line[0]) * 180 / CV_PI;// + CV_PI; //* 180 / CV_PI;//line[1]/line[0];
+    //if(slope < 0) slope += 180;
+    //slope *= (180 / CV_PI);
     slopes.push_back(slope);
     //std::cout << line[0] << " " << line[1] << " " << line[2] << " " << line[3] << " " << slope << std::endl;
     }
@@ -349,7 +356,7 @@ void get_corners(std::vector<Point> boundary_points, std::vector<Point> &corner_
       std::cout << "Dude";
     }
     */
-    int erasable_range = 10;//slope_change.size()/9; //10
+    int erasable_range = 1;//10;//slope_change.size()/9; //10
     if (loc < erasable_range)
     {
       for (int i = 0; i <= loc + erasable_range; i++)

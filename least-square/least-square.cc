@@ -13,6 +13,8 @@ struct Config {
   Mat hsv_img_thresholded;
   Mat noise_free;
   Mat boundary;
+  Mat thinned_boundary;
+  Mat strip_tree;
   Mat corners;
   Mat final;
 
@@ -42,6 +44,139 @@ bool isEdge(Mat &image, int i, int j)
 
   return false;
 }
+bool changesConnectivity(Mat &image, int i, int j)
+{
+  int num_neighbors = 0;
+  Mat local_area = Mat::zeros(3,3, CV_8U);
+
+  for (int n = 0; n < 3; n++)
+  {
+    for (int m = 0; m < 3; m++)
+    {
+      //Keep the center a 0
+      if (!(n == 1 && m == 1))
+      {
+        local_area.at<unsigned char>(n,m) = image.at<unsigned char>(i - 1 + n, j - 1 + m);
+
+        if (local_area.at<unsigned char>(n,m) == 255)
+        {
+          num_neighbors++;
+        }
+      }
+    }
+  }
+  /*
+  if (local_area.at<unsigned char>(0,0) == 0 && local_area.at<unsigned char>(0,1) == 0 &&
+      local_area.at<unsigned char>(0,2) == 0 && local_area.at<unsigned char>(1,0) == 0 &&
+      local_area.at<unsigned char>(1,2) == 0 && local_area.at<unsigned char>(2,0) == 255 &&
+      local_area.at<unsigned char>(2,1) == 255 && local_area.at<unsigned char>(2,2) == 255){
+        std::cout << local_area << std::endl;
+      }
+  */
+  if (num_neighbors > 1)
+  {
+    Mat labels;
+    int num_components = connectedComponents(local_area, labels, 8);
+    if (num_components == 2) //Only a foreground and background
+    {
+      return false;
+    }
+  }
+  return true;
+/*
+  if (image.at<unsigned char>(i,j - 1) == 255 && image.at<unsigned char>(i,j + 1) == 255 &&
+      image.at<unsigned char>(i - 1,j) == 0   && image.at<unsigned char>(i + 1,) == 0)
+  {
+    changes_connectivity = true;
+  }
+
+  if (image.at<unsigned char>(i,j - 1) == 255 && image.at<unsigned char>(i,j + 1) == 255 &&
+      image.at<unsigned char>(i - 1,j) == 0   && image.at<unsigned char>(i + 1,) == 0)
+  {
+    changes_connectivity = true;
+  }
+*/
+}
+
+void thin(Mat &image)
+{
+  bool was_changed = true;
+  int count = 0;
+  while (was_changed)
+  {
+    was_changed = false;
+
+    //Thin from top
+    for (int j = 0; j < image.cols; j++)
+    {
+      for (int i = 0; i < image.rows; i++)
+      {
+        if (image.at<unsigned char>(i,j) == 255)
+        {
+          count++;
+          if (!changesConnectivity(image, i, j))
+          {
+            image.at<unsigned char>(i,j) = 0;
+            was_changed = true;
+          }
+          break;
+        }
+      }
+    }
+    std::cout << count;
+
+    //Thin from right
+    for (int i = 0; i < image.rows; i++)
+    {
+      for (int j = image.cols - 1; j >= 0; j--)
+      {
+        if (image.at<unsigned char>(i,j) == 255)
+        {
+          if (!changesConnectivity(image, i, j))
+          {
+            image.at<unsigned char>(i,j) = 0;
+            was_changed = true;
+          }
+          break;
+        }
+      }
+    }
+
+    //Thin from bottom
+    for (int j = 0; j < image.cols; j++)
+    {
+      for (int i = image.rows - 1; i >= 0; i--)
+      {
+        if (image.at<unsigned char>(i,j) == 255)
+        {
+          if (!changesConnectivity(image, i, j))
+          {
+            image.at<unsigned char>(i,j) = 0;
+            was_changed = true;
+          }
+          break;
+        }
+      }
+    }
+
+    //Thin from left
+    for (int i = 0; i < image.rows; i++)
+    {
+      for (int j = 0; j < image.cols; j++)
+      {
+        if (image.at<unsigned char>(i,j) == 255)
+        {
+          if (!changesConnectivity(image, i, j))
+          {
+            image.at<unsigned char>(i,j) = 0;
+            was_changed = true;
+          }
+          break;
+        }
+      }
+    }
+  }
+}
 
 void drawBoundary(Mat &source, Mat &target, int i, int j, std::vector<Point> &boundary_points)
 {
@@ -61,30 +196,167 @@ void drawBoundary(Mat &source, Mat &target, int i, int j, std::vector<Point> &bo
   if (isEdge(source, i - 1, j - 1) && target.at<unsigned char>(i - 1, j - 1) == 0) drawBoundary(source, target, i - 1, j - 1, boundary_points);
 }
 
+double get_furthest_point(Vec4f major, const std::vector<Point> &line_points, int &index_of_furthest_point)
+{
+  double a = -1 * major[1]/major[0];
+  double b = 1;
+  double c = (major[1]/major[0]) * major[2] - major[3];
+
+  double max_distance = 0;
+  Point furthest_point;
+  for (int i = 0; i < line_points.size(); i++)
+  {
+    double distance = abs(a*line_points[i].x + b*line_points[i].y + c)/sqrt(a*a + b*b);
+
+    if (distance > max_distance)
+    {
+      max_distance = distance;
+      furthest_point.x = line_points[i].x;
+      furthest_point.y = line_points[i].y;
+      index_of_furthest_point = i;
+    }
+  }
+
+  return max_distance;
+  //return furthest_point;
+}
+
+void split(std::vector<std::vector<Point > > &line_points)
+{
+  std::cout << "Split vec size: " << line_points.size() << std::endl;
+  int last_index = line_points.size() - 1;
+  Vec4f major;
+  cv::fitLine(line_points[last_index], major, cv::DIST_L2, 1, 0.001, 0.001);
+  int breaker;
+  double distance = get_furthest_point(major, line_points[last_index], breaker);
+
+  std::vector<Point> last = line_points[last_index];
+  line_points.pop_back();
+  std::vector<Point> first(last.begin(), last.begin() + breaker);
+  std::vector<Point> second(last.begin() + breaker, last.end());
+  line_points.push_back(first);
+  if (distance < 5 && first.size() > 5)
+  split(line_points);
+  line_points.push_back(second);
+  if (distance < 5 && second.size() > 5)
+  split(line_points);
+}
+/*
+vector<int> get_intersection_points(boundary_points, major[0], major[1])
+{
+
+}
+*/
 void get_lines(std::vector<Point> &boundary_points, Mat &image)
 {
   Vec4f major;
-  cv::fitLine(boundary_points, major, cv::DIST_FAIR, 1, 0.001, 0.001);
+  cv::fitLine(boundary_points, major, cv::DIST_L2, 1, 0.001, 0.001);
 
+  /*
   Vec4f minor;
   minor[0] = -1 * major[1];
   minor[1] = major[0];
   minor[2] = major[2];
   minor[3] = major[3];
-
+  */
   Point pmajor1, pmajor2, pminor1, pminor2;
   pmajor1.x = major[2] - 2000 * major[0];
   pmajor1.y = major[3] - 2000 * major[1];
   pmajor2.x = major[2] + 2000 * major[0];
   pmajor2.y = major[3] + 2000 * major[1];
-
+  /*
   pminor1.x = minor[2] - 2000 * minor[0];
   pminor1.y = minor[3] - 2000 * minor[1];
   pminor2.x = minor[2] + 2000 * minor[0];
   pminor2.y = minor[2] + 2000 * minor[1];
-
+  */
   cv::line(image, pmajor1, pmajor2, Scalar(255,0,0), 2);
-  cv::line(image, pminor1, pminor2, Scalar(100,0,0), 2);
+  //cv::line(image, pminor1, pminor2, Scalar(100,0,0), 2);
+
+  double slope = major[1]/major[0];
+  double b = slope * -1 * major[2] + major[3];
+
+  //vector<int> get_intersection_points(boundary_points, major[0], major[1]);
+
+  int index1 = -1;
+  int index2 = -1;
+  int count = 0;
+  for (int i = 0; i < boundary_points.size(); i++)
+  {
+    double epsilon = 3.00;
+
+    if (slope * boundary_points[i].x + b > boundary_points[i].y - epsilon &&
+        slope * boundary_points[i].x + b < boundary_points[i].y + epsilon)
+    {
+        std::cout << "\nInitial Intersection:" << boundary_points[i] << std::endl;
+        circle(image, boundary_points[i], 5, Scalar(255, 0, 0));
+        i += 15;
+        count++;
+        if (index1 == -1)
+        {
+          index1 = i;
+        }
+        else
+        {
+          index2 = i;
+        }
+    }
+  }
+
+  if (count != 2) {return;}
+
+  std::vector<std::vector<Point> > line_points;
+
+  std::vector<Point> first(boundary_points.begin(), boundary_points.begin() + index1);
+  std::vector<Point> second(boundary_points.begin() + index1, boundary_points.begin() + index2);
+  for (int i = index2; i < boundary_points.size(); i++)
+  {
+    first.push_back(boundary_points[i]);
+  }
+  line_points.push_back(first);
+  //line_points.push_back(second);
+
+  split(line_points);
+  line_points.push_back(second);
+  split(line_points);
+
+  for (int i = 0; i < line_points.size(); i++)
+  {
+    Vec4f major;
+    if (line_points[i].size() > 3)
+    {
+    cv::fitLine(line_points[i], major, cv::DIST_L2, 1, 0.001, 0.001);
+
+    Point pmajor1, pmajor2;
+    pmajor1.x = major[2] - 2000 * major[0];
+    pmajor1.y = major[3] - 2000 * major[1];
+    pmajor2.x = major[2] + 2000 * major[0];
+    pmajor2.y = major[3] + 2000 * major[1];
+    cv::line(image, pmajor1, pmajor2, Scalar(255,0,0), 2);
+  }
+  }
+  //std::cout << line_points.size() << std::endl;
+  //cv::fitLine(line_points[0], major, cv::DIST_L2, 1, 0.001, 0.001);
+  /*
+  pmajor1.x = major[2] - 2000 * major[0];
+  pmajor1.y = major[3] - 2000 * major[1];
+  pmajor2.x = major[2] + 2000 * major[0];
+  pmajor2.y = major[3] + 2000 * major[1];
+  cv::line(image, pmajor1, pmajor2, Scalar(255,0,0), 2);
+  */
+  //Point breaker = get_furthest_point(major, line_points[0]);
+  //circle(image, breaker, 5, Scalar(255, 0, 0));
+  /*
+  cv::fitLine(line_points[1], major, cv::DIST_L2, 1, 0.001, 0.001);
+  pmajor1.x = major[2] - 2000 * major[0];
+  pmajor1.y = major[3] - 2000 * major[1];
+  pmajor2.x = major[2] + 2000 * major[0];
+  pmajor2.y = major[3] + 2000 * major[1];
+  cv::line(image, pmajor1, pmajor2, Scalar(255,0,0), 2);
+  */
+  //breaker = get_furthest_point(major, line_points[1]);
+  //circle(image, breaker, 5, Scalar(255, 0, 0));
+  //while (true)
 
 }
 
@@ -126,6 +398,8 @@ int main(int argc, char** argv)
     namedWindow("HSV Image Thresholded", WINDOW_AUTOSIZE);
     namedWindow("Noise Free Image", WINDOW_AUTOSIZE);
     namedWindow("Boundary", WINDOW_AUTOSIZE);
+    namedWindow("Thinned Boundary", WINDOW_AUTOSIZE);
+    namedWindow("Strip Tree Lines", WINDOW_AUTOSIZE);
     namedWindow("Final Image", WINDOW_AUTOSIZE);
     //namedWindow("Threshold Slider", WINDOW_AUTOSIZE);
 
@@ -172,10 +446,36 @@ int main(int argc, char** argv)
       }
     }
 
-    get_lines(boundary_points, r.boundary);
+    r.thinned_boundary = r.boundary.clone();
+    thin(r.thinned_boundary);
+
+
+    Mat dummy = Mat::zeros(r.thinned_boundary.rows, r.thinned_boundary.cols, CV_8U);
+    std::vector<Point> thinned_boundary_points;
+
+    //Find thinned boundary points
+    done = false;
+    for(int i = 0; i < r.thinned_boundary.rows; i++) {
+      if (done) break;
+      for(int j = 0; j < r.thinned_boundary.cols; j++) {
+        if (isEdge(r.thinned_boundary, i, j))
+        {
+          drawBoundary(r.thinned_boundary, dummy, i, j, thinned_boundary_points);
+          done = true;
+          break;
+        }
+      }
+    }
+
+    r.strip_tree = r.thinned_boundary.clone();
+    get_lines(thinned_boundary_points, r.strip_tree);
 
     imshow("Noise Free Image", r.noise_free);
     imshow("Boundary", r.boundary);
+    imshow("Thinned Boundary", r.thinned_boundary);
+    imshow("Strip Tree Lines", r.strip_tree);
+
+
 
     r.line_length = 25;
     //createTrackbar("Minimum Line Length Selector", "Threshold Slider", &r.line_length, 100, slider, &r);
@@ -222,6 +522,8 @@ int main(int argc, char** argv)
     destroyWindow("HSV Image Thresholded");
     destroyWindow("Noise Free Image");
     destroyWindow("Boundary");
+    destroyWindow("Thinned Boundary");
+    destroyWindow("Strip Tree Lines");
     destroyWindow("Final Image");
     //destroyWindow("Threshold Slider");
 
