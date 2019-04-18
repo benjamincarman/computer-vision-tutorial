@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <vector>
+#include <list>
 
 using namespace cv;
 
@@ -241,43 +242,213 @@ void split(std::vector<std::vector<Point > > &line_points)
   if (distance < 5 && second.size() > 5)
   split(line_points);
 }
-/*
-vector<int> get_intersection_points(boundary_points, major[0], major[1])
-{
 
-}
-*/
-void get_lines(std::vector<Point> &boundary_points, Mat &image)
+std::vector<std::vector<Point> > split_at_intersection_points(std::vector<Point> &boundary_points, Vec4f &major, Mat &image)
 {
-  Vec4f major;
-  cv::fitLine(boundary_points, major, cv::DIST_L2, 1, 0.001, 0.001);
+  std::vector<std::vector<Point> > split_boundary;
 
+  //Get fitted line vector direction
+  double vx = major[0];
+  double vy = major[1];
+
+  //Get origin fitted vector is respect to for line
+  double ox = major[2];
+  double oy = major[3];
+
+  int intersection1;
+  int intersection2;
+  double min = 1000;
+  double max = -1000;
+  for (int i = 0; i < boundary_points.size(); i++)
+  {
+    //Get vector to current point from origin
+    double px = boundary_points[i].x - ox;
+    double py = boundary_points[i].y - oy;
+
+    //Normalize vector
+    double length = sqrt(px * px + py * py);
+    px /= length;
+    py /= length;
+
+    //std::cout << "Point #: " << i << " x = " << thinned_boundary_points[i].x << "; y = " << thinned_boundary_points[i].y
+    //          << "; Dot Product: " << x *  0.462352 + y * -0.886696 << std::endl;
+
+    double dot_product = px *  vx + py * vy;
+    if (dot_product < min)
+    {
+      intersection1 = i;
+      min = dot_product;
+    }
+    if (dot_product > max)
+    {
+      intersection2 = i;
+      max = dot_product;
+    }
+  }
+
+  circle(image, boundary_points[intersection1], 5, Scalar(255, 0, 0));
+  circle(image, boundary_points[intersection2], 5, Scalar(255, 0, 0));
+
+  //Generate separate vectors of points and put into split_boundary
+  if (intersection1 < intersection2)
+  {
+    std::vector<Point> set1 (boundary_points.begin() + intersection1, boundary_points.begin() + intersection2);
+
+    std::vector<Point> set2 (boundary_points.begin() + intersection2, boundary_points.end());
+    for (int i = 0; i < intersection1; i++)
+    {
+      set2.push_back(boundary_points[i]);
+    }
+
+    split_boundary.push_back(set1);
+    split_boundary.push_back(set2);
+  }
+  else
+  {
+    std::vector<Point> set1 (boundary_points.begin() + intersection2, boundary_points.begin() + intersection1);
+
+    std::vector<Point> set2 (boundary_points.begin() + intersection1, boundary_points.end());
+    for (int i = 0; i < intersection2; i++)
+    {
+      set2.push_back(boundary_points[i]);
+    }
+
+    split_boundary.push_back(set1);
+    split_boundary.push_back(set2);
+  }
+
+  //Debug info
   /*
-  Vec4f minor;
-  minor[0] = -1 * major[1];
-  minor[1] = major[0];
-  minor[2] = major[2];
-  minor[3] = major[3];
+  std::cout << "Size of split_boundary: " << split_boundary.size() << ", Size of boundary_points: " << boundary_points.size()
+            << ", Size of split_boundary[0]: " << split_boundary[0].size() << ", Size of split_boundary[1]: " << split_boundary[1].size() << std::endl;
+  std::cout << "Intersection1: " << intersection1 << ", Intersection2: " << intersection2 << std::endl;
   */
+
+  return split_boundary;
+}
+
+void split_at_extreme_points(std::vector<std::vector<Point> > &boundary_lines, const std::vector<Point> &boundary_section, Mat &image)
+{
+  if (boundary_section.size() < 9)
+  {
+    boundary_lines.push_back(boundary_section);
+    return;
+  }
+
+  Vec4f major;
+/*
+  std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << std::endl;
+  for (int i = 0; i < boundary_section.size(); i++)
+  {
+    std::cout << "Point " << i << ": x = " << boundary_section[i].x << ", y = " << boundary_section[i].y << std::endl;
+    if (boundary_section.size() < 200) circle(image, boundary_section[i], 3, Scalar(255, 0, 0));
+  }
+  std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << std::endl;
+  */
+  cv::fitLine(boundary_section, major, cv::DIST_L2, 1, 0.001, 0.001);
+
   Point pmajor1, pmajor2, pminor1, pminor2;
   pmajor1.x = major[2] - 2000 * major[0];
   pmajor1.y = major[3] - 2000 * major[1];
   pmajor2.x = major[2] + 2000 * major[0];
   pmajor2.y = major[3] + 2000 * major[1];
-  /*
-  pminor1.x = minor[2] - 2000 * minor[0];
-  pminor1.y = minor[3] - 2000 * minor[1];
-  pminor2.x = minor[2] + 2000 * minor[0];
-  pminor2.y = minor[2] + 2000 * minor[1];
-  */
+
+  //cv::line(image, pmajor1, pmajor2, Scalar(255,0,0), 2);
+
+  //Get fitted line vector direction PERPENDICULAR
+  double vx = major[1] * -1;
+  double vy = major[0];
+
+  //Get origin fitted vector is respect to for line
+  double ox = major[2];
+  double oy = major[3];
+
+  std::list<std::pair<double,int> > dot_products;
+  for (int i = 0; i < boundary_section.size(); i++)
+  {
+    //Get vector to current point from origin
+    double px = boundary_section[i].x - ox;
+    double py = boundary_section[i].y - oy;
+
+    //Normalize vector
+    double length = sqrt(px * px + py * py);
+    px /= length;
+    py /= length;
+
+    //std::cout << "Point #: " << i << " x = " << thinned_boundary_points[i].x << "; y = " << thinned_boundary_points[i].y
+    //          << "; Dot Product: " << x *  0.462352 + y * -0.886696 << std::endl;
+
+    double dot_product = px *  vx + py * vy;
+    std::pair<double,int> current_dot_prod (abs(dot_product),i);
+    dot_products.push_back(current_dot_prod);
+  }
+
+  dot_products.sort();
+  //circle(image, boundary_section[dot_products.back().second], 5, Scalar(255, 0, 0));
+  //std::cout << "Biggest DP: " << dot_products.back().first << " Smallest DP: " << dot_products.front().first << std::endl;
+  //circle(image, boundary_section[dot_products.front().second], 5, Scalar(255, 0, 0));
+
+  //imshow("Strip Tree Lines", image);
+  //std::cout << "Size: " << boundary_section.size() << std::endl;
+  //waitKey();
+
+  if (dot_products.back().first < 0.1)
+  {
+    boundary_lines.push_back(boundary_section);
+    return;
+  }
+  else
+  {
+    int split_location = dot_products.back().second;
+    std::vector<Point> set1 (boundary_section.begin(), boundary_section.begin() + split_location);
+    std::vector<Point> set2 (boundary_section.begin() + split_location, boundary_section.end());
+
+    split_at_extreme_points(boundary_lines, set1, image);
+    split_at_extreme_points(boundary_lines, set2, image);
+  }
+}
+
+void get_lines(std::vector<Point> &boundary_points, Mat &image)
+{
+  Vec4f major;
+  cv::fitLine(boundary_points, major, cv::DIST_L2, 1, 0.001, 0.001);
+
+  //Output debug info
+  std::cout << "Line[0]: " << major[0] << " Line[1]: " << major[1] << " Line[2]: " << major[2] << " Line[3]: " << major[3] << std::endl;
+
+  Point pmajor1, pmajor2, pminor1, pminor2;
+  pmajor1.x = major[2] - 2000 * major[0];
+  pmajor1.y = major[3] - 2000 * major[1];
+  pmajor2.x = major[2] + 2000 * major[0];
+  pmajor2.y = major[3] + 2000 * major[1];
+
   cv::line(image, pmajor1, pmajor2, Scalar(255,0,0), 2);
-  //cv::line(image, pminor1, pminor2, Scalar(100,0,0), 2);
 
-  double slope = major[1]/major[0];
-  double b = slope * -1 * major[2] + major[3];
+  std::vector<std::vector<Point> > split_boundary = split_at_intersection_points(boundary_points, major, image);
 
-  //vector<int> get_intersection_points(boundary_points, major[0], major[1]);
+  //Do recursively
+  //Pass a set of points, calculate the extreme
+  //If extreme is below a certain threshold (or num points) push into a referenced vector
+  //If not, create a set (vector) of points splitting at extremum, and continue recursively on each
+  std::vector<std::vector<Point> > boundary_lines;
+  split_at_extreme_points(boundary_lines, split_boundary[0], image);
+  split_at_extreme_points(boundary_lines, split_boundary[1], image);
 
+  for (int i = 0; i < boundary_lines.size(); i++)
+  {
+    Vec4f major;
+    cv::fitLine(boundary_lines[i], major, cv::DIST_L2, 1, 0.001, 0.001);
+
+    Point pmajor1, pmajor2, pminor1, pminor2;
+    pmajor1.x = major[2] - 2000 * major[0];
+    pmajor1.y = major[3] - 2000 * major[1];
+    pmajor2.x = major[2] + 2000 * major[0];
+    pmajor2.y = major[3] + 2000 * major[1];
+
+    cv::line(image, pmajor1, pmajor2, Scalar(255,0,0), 1);
+  }
+  std::cout << "Size of boundary_lines: " << boundary_lines.size() << std::endl;
+/*
   int index1 = -1;
   int index2 = -1;
   int count = 0;
@@ -289,7 +460,7 @@ void get_lines(std::vector<Point> &boundary_points, Mat &image)
         slope * boundary_points[i].x + b < boundary_points[i].y + epsilon)
     {
         std::cout << "\nInitial Intersection:" << boundary_points[i] << std::endl;
-        circle(image, boundary_points[i], 5, Scalar(255, 0, 0));
+        //circle(image, boundary_points[i], 5, Scalar(255, 0, 0));
         i += 15;
         count++;
         if (index1 == -1)
@@ -335,6 +506,9 @@ void get_lines(std::vector<Point> &boundary_points, Mat &image)
     cv::line(image, pmajor1, pmajor2, Scalar(255,0,0), 2);
   }
   }
+
+*/
+
   //std::cout << line_points.size() << std::endl;
   //cv::fitLine(line_points[0], major, cv::DIST_L2, 1, 0.001, 0.001);
   /*
@@ -466,9 +640,38 @@ int main(int argc, char** argv)
         }
       }
     }
+    /*
+    int p1;
+    int p2;
+    double min = 1000;
+    double max = -1000;
+    for (int i = 0; i < thinned_boundary_points.size(); i++)
+    {
+      double x = thinned_boundary_points[i].x - 322.3;
+      double y = thinned_boundary_points[i].y - 282.233;
+      double length = sqrt(thinned_boundary_points[i].x * thinned_boundary_points[i].x + thinned_boundary_points[i].y * thinned_boundary_points[i].y);
+      x /= length;
+      y /= length;
+      std::cout << "Point #: " << i << " x = " << thinned_boundary_points[i].x << "; y = " << thinned_boundary_points[i].y
+                << "; Dot Product: " << x *  0.462352 + y * -0.886696 << std::endl;
 
+      if (x *  0.462352 + y * -0.886696 < min)
+      {
+        p1 = i;
+        min = x *  0.462352 + y * -0.886696;
+      }
+      if (x *  0.462352 + y * -0.886696 > max)
+      {
+        p2 = i;
+        max = x *  0.462352 + y * -0.886696;
+      }
+    }
+    */
     r.strip_tree = r.thinned_boundary.clone();
     get_lines(thinned_boundary_points, r.strip_tree);
+
+    //circle(r.strip_tree, thinned_boundary_points[p1], 5, Scalar(255, 0, 0));
+    //circle(r.strip_tree, thinned_boundary_points[p2], 5, Scalar(255, 0, 0));
 
     imshow("Noise Free Image", r.noise_free);
     imshow("Boundary", r.boundary);
