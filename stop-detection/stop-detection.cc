@@ -1,6 +1,7 @@
 #include "opencv2/imgproc.hpp"
 #include "opencv2/imgcodecs.hpp"
 #include "opencv2/highgui.hpp"
+#include "opencv2/calib3d/calib3d.hpp"
 #include <cstdlib>
 #include <iostream>
 #include <vector>
@@ -18,7 +19,12 @@ struct Processed_Images {
   Mat boundary;
   Mat thinned_boundary;
   Mat boundary_corners;
-  Mat perspective;
+  Mat perspective4_bgr;
+  Mat perspective8_bgr;
+  Mat perspective4_boundary;
+  Mat perspective8_boundary;
+  Mat perspective4_corners;
+  Mat perspective8_corners;
   Mat strip_tree;
   Mat merged_strip_tree;
   Mat corners;
@@ -40,6 +46,7 @@ void generate_results(Processed_Images &results);
 
 void display_results(Processed_Images &r);
 void Image_Slider(int, void* results);
+void Transformed_Image_Slider(int, void* results);
 
 int main(int argc, char** argv)
 {
@@ -132,9 +139,27 @@ void generate_results(Processed_Images &r)
   std::vector<Point> corner_points;
   get_corners(thinned_boundary_points, corner_points, r.boundary_corners);
 
-  //Change perspective
-  r.perspective = r.thinned_boundary.clone();
-  change_perspective(corner_points, r.boundary_corners, r.perspective);
+  //Change perspective of bgr image using 4 points
+  r.perspective4_bgr = r.bgr_img.clone();
+  change_perspective4(corner_points, r.bgr_img, r.perspective4_bgr);
+
+  //Change perspective of bgr image using 8 points
+  r.perspective8_bgr = r.bgr_img.clone();
+  change_perspective8(corner_points, r.bgr_img, r.perspective8_bgr);
+
+  //Change perspective of boundary using 4 points
+  r.perspective4_boundary = r.thinned_boundary.clone();
+  change_perspective4(corner_points, r.thinned_boundary, r.perspective4_boundary);
+
+  //Change perspective of boundary using all 8 points
+  r.perspective8_boundary = r.thinned_boundary.clone();
+  change_perspective8(corner_points, r.thinned_boundary, r.perspective8_boundary);
+
+  r.perspective4_corners = r.perspective4_boundary.clone();
+  r.perspective8_corners = r.perspective8_boundary.clone();
+
+  get_perspective_corners(r.perspective4_corners);
+  get_perspective_corners(r.perspective8_corners);
 
   //Generate boundary lines using strip trees
   r.strip_tree = r.thinned_boundary.clone();
@@ -181,17 +206,23 @@ void generate_results(Processed_Images &r)
 
 void display_results(Processed_Images &results)
 {
-  namedWindow("Original Image", WINDOW_AUTOSIZE);
-  imshow("Original Image", results.bgr_img);
+  //namedWindow("Original Image", WINDOW_AUTOSIZE);
+  //imshow("Original Image", results.bgr_img);
 
   namedWindow("Manipulated Images", WINDOW_AUTOSIZE);
   results.selector = 0;
   createTrackbar("Image Selector", "Manipulated Images", &results.selector, 8, Image_Slider, &results);
-  imshow("Manipulated Images", results.hsv_img_thresholded);
+  imshow("Manipulated Images", results.bgr_img);
+
+  namedWindow("Transformed Images", WINDOW_AUTOSIZE);
+  results.selector = 0;
+  createTrackbar("Image Selector", "Transformed Images", &results.selector, 5, Transformed_Image_Slider, &results);
+  imshow("Transformed Images", results.perspective4_bgr);
 
   waitKey(0);
-  destroyWindow("Original Image");
+  //destroyWindow("Original Image");
   destroyWindow("Manipulated Images");
+  destroyWindow("Transformed Images");
 }
 
 void Image_Slider(int, void* results)
@@ -200,23 +231,44 @@ void Image_Slider(int, void* results)
 
   switch (r->selector)
   {
-    case 0: imshow("Manipulated Images", r->hsv_img_thresholded);
+    case 0: imshow("Manipulated Images", r->bgr_img);
             break;
-    case 1: imshow("Manipulated Images", r->noise_free);
+    case 1: imshow("Manipulated Images", r->hsv_img_thresholded);
             break;
-    case 2: imshow("Manipulated Images", r->boundary);
+    case 2: imshow("Manipulated Images", r->noise_free);
             break;
-    case 3: imshow("Manipulated Images", r->thinned_boundary);
+    case 3: imshow("Manipulated Images", r->boundary);
             break;
-    case 4: imshow("Manipulated Images", r->boundary_corners);
+    case 4: imshow("Manipulated Images", r->thinned_boundary);
             break;
-    case 5: imshow("Manipulated Images", r->strip_tree);
+    case 5: imshow("Manipulated Images", r->boundary_corners);
             break;
-    case 6: imshow("Manipulated Images", r->merged_strip_tree);
+    case 6: imshow("Manipulated Images", r->strip_tree);
             break;
-    case 7: imshow("Manipulated Images", r->final);
+    case 7: imshow("Manipulated Images", r->merged_strip_tree);
             break;
-    case 8: imshow("Manipulated Images", r->perspective);
+    case 8: imshow("Manipulated Images", r->final);
+            break;
+  }
+}
+
+void Transformed_Image_Slider(int, void* results)
+{
+  Processed_Images* r = (Processed_Images*)results;
+
+  switch (r->selector)
+  {
+    case 0: imshow("Transformed Images", r->perspective4_bgr);
+            break;
+    case 1: imshow("Transformed Images", r->perspective8_bgr);
+            break;
+    case 2: imshow("Transformed Images", r->perspective4_boundary);
+            break;
+    case 3: imshow("Transformed Images", r->perspective8_boundary);
+            break;
+    case 4: imshow("Transformed Images", r->perspective4_corners);
+            break;
+    case 5: imshow("Transformed Images", r->perspective8_corners);
             break;
   }
 }
