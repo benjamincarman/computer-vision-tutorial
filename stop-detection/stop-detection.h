@@ -255,6 +255,131 @@ void get_corners(std::vector<Point> boundary_points, std::vector<Point> &corner_
   }
 }
 
+std::vector<Point2f> order_points(std::vector<Point2f> points)
+{
+  int min = points[0].x + points[0].y;
+  int max = points[0].x + points[0].y;
+  int smallest_sum_index = 0;
+  int largest_sum_index = 0;
+  for (int i = 1; i < 4; i++)
+  {
+    if (points[i].x + points[i].y < min)
+    {
+      min = points[i].x + points[i].y;
+      smallest_sum_index = i;
+    }
+
+    if (points[i].x + points[i].y > max)
+    {
+      max = points[i].x + points[i].y;
+      largest_sum_index = i;
+    }
+  }
+
+  min = points[0].y - points[0].x;
+  max = points[0].y - points[0].x;
+  int smallest_difference_index = 0;
+  int largest_difference_index = 0;
+  for (int i = 1; i < 4; i++)
+  {
+    if (points[i].y - points[i].x < min)
+    {
+      min = points[i].y - points[i].x;
+      smallest_difference_index = i;
+    }
+
+    if (points[i].y - points[i].x > max)
+    {
+      max = points[i].y - points[i].x;
+      largest_difference_index = i;
+    }
+  }
+
+  std::vector<Point2f> ordered_points;
+  ordered_points.push_back(points[smallest_sum_index]);
+  ordered_points.push_back(points[smallest_difference_index]);
+  ordered_points.push_back(points[largest_sum_index]);
+  ordered_points.push_back(points[largest_difference_index]);
+
+  return ordered_points;
+}
+
+void change_perspective(std::vector<Point> corner_points, const Mat &source_image, Mat &dst_image)
+{
+  /*
+  std::vector<Point2f> use_points;
+  for (int i = 0; i <= 6; i += 2)
+  {
+    use_points.push_back(Point2f(corner_points[i]));
+  }
+*/
+
+  std::vector<Point2f> use_points;
+  use_points.push_back(Point2f(corner_points[0]));
+  use_points.push_back(Point2f(corner_points[1]));
+  use_points.push_back(Point2f(corner_points[4]));
+  use_points.push_back(Point2f(corner_points[5]));
+  for (int i = 0; i < use_points.size(); i++)
+  {
+    std::cout << use_points[i] << std::endl;
+  }
+
+
+  //std::vector<Point2f> points = order_points(use_points);
+  std::vector<Point2f> points = use_points;
+  for (int i = 0; i < use_points.size(); i++)
+  {
+    std::cout << points[i] << std::endl;
+  }
+  Point2f tl = points[0];
+  Point2f tr = points[1];
+  Point2f br = points[2];
+  Point2f bl = points[3];
+
+  double widthA = sqrt(((br.x - bl.x) * (br.x - bl.x)) + ((br.y - bl.y) * (br.y - bl.y)));
+	double widthB = sqrt(((tr.x - tl.x) * (tr.x - tl.x)) + ((tr.y - tl.y) * (tr.y - tl.y)));
+	int maxWidth = max(int(widthA), int(widthB));
+
+  double heightA = sqrt(((tr.x - br.x) * (tr.x - br.x)) + ((tr.y - br.y) * (tr.y - br.y)));
+	double heightB = sqrt(((tl.x - bl.x) * (tl.x - bl.x)) + ((tl.y - bl.y) * (tl.y - bl.y)));
+	int maxHeight = max(int(heightA), int(heightB));
+
+  /*
+  std::vector<Point2f> dst;
+  dst.push_back(Point2f(0, 0));
+  dst.push_back(Point2f(maxWidth - 1, 0));
+  dst.push_back(Point2f(maxWidth - 1, maxHeight - 1));
+	dst.push_back(Point2f(0, maxHeight - 1));
+  */
+  std::vector<Point2f> dst;
+  /*
+  dst.push_back(Point2f(119, 0));
+  dst.push_back(Point2f(288, 0));
+  dst.push_back(Point2f(288, 409));
+	dst.push_back(Point2f(119, 409));
+  */
+  dst.push_back(Point2f(124, 5));
+  dst.push_back(Point2f(293, 5));
+  dst.push_back(Point2f(293, 414));
+  dst.push_back(Point2f(124, 414));
+
+  Mat s(points);
+  Mat d(dst);
+
+  //std::cout << s.check
+
+  std::cout << points.size() << std::endl << dst.size() << std::endl;
+  for (int i = 0; i < points.size(); i++)
+  {
+    std::cout << "Point [" << i << "]: " << points[i] << std::endl
+              << "Dst [" << i << "]: " << dst[i] << std::endl;
+  }
+
+  Mat transform = getPerspectiveTransform(s, d);
+  warpPerspective(source_image, dst_image, transform, Size(417, 419)); //was 10 less on each
+
+
+}
 
 std::vector<std::vector<Point> > split_at_intersection_points(std::vector<Point> &boundary_points, Vec4f &major, Mat &image)
 {

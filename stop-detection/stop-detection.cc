@@ -18,6 +18,7 @@ struct Processed_Images {
   Mat boundary;
   Mat thinned_boundary;
   Mat boundary_corners;
+  Mat perspective;
   Mat strip_tree;
   Mat merged_strip_tree;
   Mat corners;
@@ -131,6 +132,10 @@ void generate_results(Processed_Images &r)
   std::vector<Point> corner_points;
   get_corners(thinned_boundary_points, corner_points, r.boundary_corners);
 
+  //Change perspective
+  r.perspective = r.thinned_boundary.clone();
+  change_perspective(corner_points, r.boundary_corners, r.perspective);
+
   //Generate boundary lines using strip trees
   r.strip_tree = r.thinned_boundary.clone();
   std::vector<std::vector<Point> > boundary_lines = get_lines(thinned_boundary_points, r.strip_tree);
@@ -181,7 +186,7 @@ void display_results(Processed_Images &results)
 
   namedWindow("Manipulated Images", WINDOW_AUTOSIZE);
   results.selector = 0;
-  createTrackbar("Image Selector", "Manipulated Images", &results.selector, 7, Image_Slider, &results);
+  createTrackbar("Image Selector", "Manipulated Images", &results.selector, 8, Image_Slider, &results);
   imshow("Manipulated Images", results.hsv_img_thresholded);
 
   waitKey(0);
@@ -210,6 +215,8 @@ void Image_Slider(int, void* results)
     case 6: imshow("Manipulated Images", r->merged_strip_tree);
             break;
     case 7: imshow("Manipulated Images", r->final);
+            break;
+    case 8: imshow("Manipulated Images", r->perspective);
             break;
   }
 }
