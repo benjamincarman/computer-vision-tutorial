@@ -137,7 +137,7 @@ void generate_results(Processed_Images &r)
   //Find boundary corners
   r.boundary_corners = r.thinned_boundary.clone();
   std::vector<Point> corner_points;
-  get_corners(thinned_boundary_points, corner_points, r.boundary_corners);
+  get_corners(thinned_boundary_points, corner_points, r.boundary_corners, 0.09, 5);
 
   //Change perspective of bgr image using 4 points
   r.perspective4_bgr = r.bgr_img.clone();

@@ -150,11 +150,31 @@ void drawBoundary(Mat &source, Mat &target, int i, int j, std::vector<Point> &bo
   if (isEdge(source, i - 1, j - 1) && target.at<unsigned char>(i - 1, j - 1) == 0) drawBoundary(source, target, i - 1, j - 1, boundary_points);
 }
 
-void get_corners(std::vector<Point> boundary_points, std::vector<Point> &corner_points, Mat &image)
+double get_difference(double angle1, double angle2)
 {
+  double difference1 = abs(angle1 - angle2);
 
+  //If angles are in different quadrants
+  if (angle1 * angle2 < 0)
+  {
+    double difference2;
+    if (angle1 < 0)
+    {
+      difference2 = (CV_PI/2.0 + angle1) + (CV_PI/2.0 - angle2);
+      return min(difference1, difference2);
+    }
+    else
+    {
+      difference2 = (CV_PI/2.0 + angle2) + (CV_PI/2.0 - angle1);
+      return min(difference1, difference2);
+    }
+  }
+  return difference1;
+}
+
+void get_corners(std::vector<Point> boundary_points, std::vector<Point> &corner_points, Mat &image, double threshold, int buffer)
+{
   std::vector<double> slopes;
-  int buffer = 6;
 
   //Get all out slopes from orgigin +- 6 pixels
   for (size_t i = 0; i < boundary_points.size(); i++)
@@ -171,7 +191,7 @@ void get_corners(std::vector<Point> boundary_points, std::vector<Point> &corner_
       Vec4f line; //use l2
       fitLine(pts, line, cv::DIST_L2, 1, 0.01, 0.01);
 
-      double slope = atan(line[1]/line[0]) * 180 / CV_PI;// + CV_PI; //* 180 / CV_PI;//line[1]/line[0];
+      double slope = atan2(line[1], line[0]);
 
       slopes.push_back(slope);
     }
@@ -187,7 +207,7 @@ void get_corners(std::vector<Point> boundary_points, std::vector<Point> &corner_
       Vec4f line;
       fitLine(pts, line, cv::DIST_L2, 1, 0.01, 0.01);
 
-      double slope = atan(line[1]/line[0]) * 180 / CV_PI;// + CV_PI; //* 180 / CV_PI;//line[1]/line[0];
+      double slope = atan2(line[1], line[0]);
 
       slopes.push_back(slope);
     }
@@ -198,7 +218,7 @@ void get_corners(std::vector<Point> boundary_points, std::vector<Point> &corner_
     Vec4f line;
     fitLine(pts, line, cv::DIST_L2, 1, 0.01, 0.01);
 
-    double slope = atan(line[1]/line[0]) * 180 / CV_PI;// + CV_PI; //* 180 / CV_PI;//line[1]/line[0];
+    double slope = atan2(line[1], line[0]);
 
     slopes.push_back(slope);
     }
@@ -209,15 +229,15 @@ void get_corners(std::vector<Point> boundary_points, std::vector<Point> &corner_
 
   for (int i = 0; i < slopes.size() - 1; i++)
   {
-    double change = (slopes[i+1] - slopes[i]);
+    double change = get_difference(slopes[i+1], slopes[i]);
     slope_change.push_back(change);
   }
-  slope_change.push_back(slopes[0] - slopes[slopes.size() - 1]);
+  slope_change.push_back(get_difference(slopes[0], slopes[slopes.size() - 1]));
 
   std::vector<std::pair<Point,double> > corner_candidates;
   for (int i = 0; i < slope_change.size(); i++)
   {
-    if (abs(slope_change[i]) >= 5)
+    if (slope_change[i] >= threshold)
     {
       corner_candidates.push_back(std::make_pair(boundary_points[i], slope_change[i]));
     }
@@ -339,7 +359,7 @@ void get_perspective_corners(Mat &image)
 
   //Find boundary corners
   std::vector<Point> corner_points;
-  get_corners(bps, corner_points, image);
+  get_corners(bps, corner_points, image, 0.1, 7);
 }
 
 std::vector<std::vector<Point> > split_at_intersection_points(std::vector<Point> &boundary_points, Vec4f &major, Mat &image)
